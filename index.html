@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ex 5: Johnson's Algorithm</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f6f7f9;--card:#fff;--tx:#1b1f24;--mut:#5b6572;--bd:#dde1e7;--c1:#2563eb;--c2:#e8590c;--acc:#2563eb}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#101317;--card:#181c22;--tx:#e8ebef;--mut:#9aa4b1;--bd:#2b323b;--c1:#5b9bff;--c2:#ff9248;--acc:#5b9bff}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#101317;--card:#181c22;--tx:#e8ebef;--mut:#9aa4b1;--bd:#2b323b;--c1:#5b9bff;--c2:#ff9248;--acc:#5b9bff}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*:before,*:after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:980px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:1.5rem;margin:.2em 0}h2{font-size:1.05rem;margin:0 0 10px}
+.sub{color:var(--mut);margin:0 0 18px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.wide{grid-column:1/-1}
+label{display:block;font-size:.8rem;color:var(--mut);margin-bottom:3px}
+input,textarea{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit}
+textarea{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.85rem;resize:vertical}
+button{padding:9px 18px;border:0;border-radius:8px;background:var(--acc);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+button:disabled{opacity:.6;cursor:wait}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.msg{color:var(--mut);font-size:.85rem}.err{color:#d93025}
+.term{margin:0;padding:14px;background:#0d1117;color:#c9d1d9;border-radius:8px;overflow-x:auto;font:12.5px/1.5 ui-monospace,Menlo,Consolas,monospace;border:1px solid #30363d}
+.term .p{color:#7ee787}.term .h{color:#79c0ff}.term .o{color:#7ee787}.term .x{color:#ff7b72}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px}
+svg{width:100%;height:auto;display:block}
+svg text{fill:var(--tx);font-size:11px}svg .m{fill:var(--mut)}
+.lg{display:flex;gap:14px;font-size:.8rem;margin-top:6px;flex-wrap:wrap}
+.lg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px}
+.an{margin:0;padding-left:18px}.an li{margin:4px 0}
+</style>
+</head>
+<body>
+<main>
+<h1>Ex 5: Johnson’s Algorithm for Sparse Graph Shortest Paths</h1>
+<p class="sub">CP25C01 – Advanced Data Structures and Algorithms Lab · Bellman-Ford potentials, edge reweighting w′ = w + h(u) − h(v) ≥ 0, then Dijkstra (binary heap) from every vertex. Compared with Floyd-Warshall on random sparse graphs (E = 4V). The console prints in the lab manual’s format.</p>
+
+<div class="card">
+<h2>1. Inputs</h2>
+<div class="grid">
+<div><label for="n">Vertices of your graph (0 … n−1)</label><input id="n" type="number" value="5" min="2" max="40"></div>
+<div><label for="extra">Extra edge for negative-cycle test (u v w; empty to skip)</label><input id="extra" value="4 0 -10"></div>
+<div class="wide"><label for="edges">Directed edges, one per line as “u v w” (negative weights allowed). Default = CLRS example.</label>
+<textarea id="edges" rows="6">0 1 3
+0 2 8
+0 4 -4
+1 3 1
+1 4 7
+2 1 4
+3 0 2
+3 2 -5
+4 3 6</textarea></div>
+<div class="wide"><label for="sizes">Random sparse graph sizes V (comma separated, up to 1500; large V is slow; empty to skip)</label><input id="sizes" value="100, 200, 400"></div>
+<div><label for="fac">Edges per vertex (E = k·V)</label><input id="fac" type="number" value="4" min="2" max="10"></div>
+<div><label for="mw">Max base weight</label><input id="mw" type="number" value="15" min="1"></div>
+<div><label for="seed">Random seed</label><input id="seed" type="number" value="5"></div>
+</div>
+<div class="row"><button id="run">Run &amp; show console output</button><span class="msg" id="status">Ready.</span></div>
+</div>
+
+<div class="card" id="conCard" hidden><h2>2. Console output</h2><pre class="term" id="term"></pre></div>
+<div class="card" id="anCard" hidden><h2>3. Analysis</h2><ul class="an" id="an"></ul></div>
+<div class="charts" id="charts" hidden>
+<div class="card" id="gcard"><h2>Your input graph</h2><div id="c0"></div><p class="msg">Orange edges have negative weight. h(v) is shown under each vertex.</p></div>
+<div class="card" id="c1card"><h2>Running time (ms, log scale)</h2><div id="c1"></div><div class="lg"><span><i style="background:var(--c1)"></i>Johnson</span><span><i style="background:var(--c2)"></i>Floyd-Warshall</span></div></div>
+<div class="card" id="c2card"><h2>Speed-up of Johnson over Floyd-Warshall (×)</h2><div id="c2"></div></div>
+</div>
+</main>
+<script>
+"use strict";
+const $=id=>document.getElementById(id),tick=()=>new Promise(r=>setTimeout(r,0)),INF=Infinity;
+function rng(seed){let a=seed>>>0;return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+function bellmanFord(n,edges,src){const d=new Array(n).fill(INF);d[src]=0;
+  for(let k=0;k<n-1;k++){let ch=false;for(const [u,v,w] of edges)if(d[u]+w<d[v]){d[v]=d[u]+w;ch=true}if(!ch)break}
+  for(const [u,v,w] of edges)if(d[u]+w<d[v])return null;return d}
+class Heap{constructor(){this.a=[]}
+  push(x){const a=this.a;a.push(x);let i=a.length-1;while(i>0){const p=(i-1)>>1;if(a[p][0]<=a[i][0])break;[a[p],a[i]]=[a[i],a[p]];i=p}}
+  pop(){const a=this.a,top=a[0],last=a.pop();if(a.length){a[0]=last;let i=0;for(;;){let l=2*i+1,r=l+1,s=i;if(l<a.length&&a[l][0]<a[s][0])s=l;if(r<a.length&&a[r][0]<a[s][0])s=r;if(s===i)break;[a[s],a[i]]=[a[i],a[s]];i=s}}return top}
+  get size(){return this.a.length}}
+function dijkstra(n,adj,src){const d=new Array(n).fill(INF);d[src]=0;const pq=new Heap();pq.push([0,src]);
+  while(pq.size){const [du,u]=pq.pop();if(du>d[u])continue;for(const [v,w] of adj[u])if(du+w<d[v]){d[v]=du+w;pq.push([d[v],v])}}return d}
+function johnson(n,edges){const aug=edges.concat(Array.from({length:n},(_,v)=>[n,v,0]));
+  const h=bellmanFord(n+1,aug,n);if(!h)return [null,null,0];
+  const adj=Array.from({length:n},()=>[]);let bad=0;
+  for(const [u,v,w] of edges){const wp=w+h[u]-h[v];if(wp<0)bad++;adj[u].push([v,wp])}
+  const D=[];for(let u=0;u<n;u++){const du=dijkstra(n,adj,u);D.push(du.map((x,v)=>x<INF?x-h[u]+h[v]:INF))}
+  return [D,h,bad]}
+function floyd(n,edges){const D=new Float64Array(n*n).fill(INF);for(let i=0;i<n;i++)D[i*n+i]=0;
+  for(const [u,v,w] of edges)D[u*n+v]=Math.min(D[u*n+v],w);
+  for(let k=0;k<n;k++)for(let i=0;i<n;i++){const dik=D[i*n+k];if(dik===INF)continue;for(let j=0;j<n;j++){const x=dik+D[k*n+j];if(x<D[i*n+j])D[i*n+j]=x}}
+  return D}
+const eqMat=(D,F,n)=>{for(let i=0;i<n;i++)for(let j=0;j<n;j++)if(D[i][j]!==F[i*n+j])return false;return true};
+
+function bars(el,groups,cols,log){
+  const W=420,H=250,m={l:50,r:10,t:16,b:30},iw=W-m.l-m.r,ih=H-m.t-m.b,all=groups.flatMap(g=>g.v),mx=Math.max(...all),mn=Math.min(...all.filter(v=>v>0));
+  let sc=v=>v/(mx*1.15);
+  if(log){const a=Math.log10(mn/2),b=Math.log10(mx*2);sc=v=>(Math.log10(Math.max(v,mn/2))-a)/(b-a)}
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img">`;
+  if(!log)for(let i=0;i<=4;i++){const y=m.t+ih-ih*i/4,v=mx*1.15*i/4;s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${y}" y2="${y}" stroke="var(--bd)"/><text class="m" x="${m.l-6}" y="${y+4}" text-anchor="end">${v<10?v.toFixed(1):v.toFixed(0)}</text>`}
+  else s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${m.t+ih}" y2="${m.t+ih}" stroke="var(--bd)"/>`;
+  const gw=iw/groups.length,k=cols.length,bw=Math.min(44,gw*.8/k);
+  groups.forEach((g,i)=>{const x0=m.l+i*gw+(gw-bw*k)/2;
+    g.v.forEach((v,j)=>{const h=ih*sc(v);s+=`<rect x="${x0+j*bw}" y="${m.t+ih-h}" width="${bw-2}" height="${h}" rx="2" fill="${cols[j]}"/><text x="${x0+j*bw+bw/2-1}" y="${m.t+ih-h-3}" text-anchor="middle" style="font-size:10px">${v<10?v.toFixed(1):v.toFixed(0)}</text>`});
+    s+=`<text class="m" x="${m.l+i*gw+gw/2}" y="${H-10}" text-anchor="middle">${g.l}</text>`});
+  $(el).innerHTML=s+"</svg>"}
+
+function drawGraph(n,edges,h){
+  const W=420,H=300,cx=W/2,cy=H/2-6,R=Math.min(W,H)/2-50,P=i=>[cx+R*Math.cos(2*Math.PI*i/n-Math.PI/2),cy+R*Math.sin(2*Math.PI*i/n-Math.PI/2)];
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img"><defs><marker id="a1" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L8,4L0,8z" fill="var(--c1)"/></marker><marker id="a2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L8,4L0,8z" fill="var(--c2)"/></marker></defs>`;
+  for(const [u,v,w] of edges){const [x1,y1]=P(u),[x2,y2]=P(v),dx=x2-x1,dy=y2-y1,L=Math.hypot(dx,dy)||1,nx=-dy/L,ny=dx/L,off=18;
+    const mx=(x1+x2)/2+nx*off,my=(y1+y2)/2+ny*off,ux=x2-mx,uy=y2-my,ul=Math.hypot(ux,uy)||1,ex=x2-ux/ul*15,ey=y2-uy/ul*15,sx=x1+(mx-x1)/Math.hypot(mx-x1,my-y1||1)*15,sy=y1+(my-y1)/Math.hypot(mx-x1,my-y1||1)*15;
+    const c=w<0?"var(--c2)":"var(--c1)";
+    s+=`<path d="M${sx},${sy} Q${mx},${my} ${ex},${ey}" fill="none" stroke="${c}" stroke-width="1.5" marker-end="url(#${w<0?"a2":"a1"})"/><text x="${(sx+2*mx+ex)/4+nx*5}" y="${(sy+2*my+ey)/4+ny*5+3}" text-anchor="middle" style="font-size:10px;fill:${c}">${w}</text>`}
+  for(let i=0;i<n;i++){const [x,y]=P(i);s+=`<circle cx="${x}" cy="${y}" r="13" fill="var(--card)" stroke="var(--tx)" stroke-width="1.3"/><text x="${x}" y="${y+4}" text-anchor="middle" style="font-weight:600">${i}</text>${h?`<text class="m" x="${x}" y="${y+27}" text-anchor="middle" style="font-size:9px">h=${h[i]}</text>`:""}`}
+  $("c0").innerHTML=s+"</svg>"}
+
+function parseEdges(txt,n){const out=[];for(const line of txt.split(/\n/)){if(!line.trim())continue;const m=line.match(/-?\d+(?:\.\d+)?/g);
+  if(!m||m.length!==3)throw new Error(`Bad edge line: “${line.trim()}” (need u v w)`);const [u,v,w]=m.map(Number);
+  if(!Number.isInteger(u)||!Number.isInteger(v)||u<0||v<0||u>=n||v>=n)throw new Error(`Vertex out of range in “${line.trim()}”`);out.push([u,v,w])}
+  if(!out.length)throw new Error("Enter at least one edge.");return out}
+
+$("run").onclick=async()=>{
+  const st=$("status");st.className="msg";
+  try{
+  const n=+$("n").value,fac=+$("fac").value,mw=+$("mw").value,seed=+$("seed").value;
+  if(![n,fac,mw,seed].every(Number.isInteger)||n<2||n>40)throw new Error("Vertices must be an integer from 2 to 40.");
+  const edges=parseEdges($("edges").value,n);
+  const sizes=$("sizes").value.split(/[,\s]+/).filter(Boolean).map(Number);
+  if(sizes.some(v=>!Number.isInteger(v)||v<5||v>1500))throw new Error("Random sizes must be integers from 5 to 1500.");
+  let extra=null;const ex=$("extra").value.trim();if(ex){const m=ex.match(/-?\d+/g);if(!m||m.length!==3)throw new Error("Extra edge needs u v w.");extra=parseEdges(ex,n)[0]}
+  $("run").disabled=true;const an=[];
+  let o=`<span class="p">$</span> <span class="h">python3 ex05_johnson.py</span>\nJOHNSON'S ALGORITHM - ALL PAIRS SHORTEST PATHS\n${"=".repeat(62)}\n`;
+  const [D,h,bad]=johnson(n,edges);
+  o+=`Your graph (${n} vertices, ${edges.length} edges, ${edges.filter(e=>e[2]<0).length} negative)\n`;
+  if(!D){o+=`<span class="x">NEGATIVE CYCLE DETECTED in the input graph - no distance matrix.</span>\n`;an.push("The input graph contains a negative cycle reachable from the super-source, so shortest paths are undefined. Remove or raise a weight on the cycle.");$("charts").hidden=false;drawGraph(n,edges,null)}
+  else{
+    o+=`Potentials h(v): [${h.slice(0,n).join(", ")}]\nDistance matrix:\n      ${[...Array(n).keys()].map(j=>String(j).padStart(6)).join("")}\n`;
+    D.forEach((r,i)=>o+=`${String(i).padStart(4)}  ${r.map(x=>(x===INF?"INF":x).toString().padStart(6)).join("")}\n`);
+    const FW=floyd(n,edges);o+=eqMat(D,FW,n)?`<span class="o">Johnson matrix equals Floyd-Warshall matrix.</span>\n`:`<span class="x">Mismatch with Floyd-Warshall!</span>\n`;
+    an.push(`Reweighting check: ${bad===0?`all ${edges.length} reweighted edges satisfy w′(u,v) ≥ 0`:`${bad} edges had w′ < 0 (bug)`}. Original negative edges: ${edges.filter(e=>e[2]<0).length}.`);
+    an.push("Why paths are preserved: for any path p from u to v, w′(p) = w(p) + h(u) − h(v), so every u→v path shifts by the same constant and the shortest one stays shortest.");
+    $("charts").hidden=false;drawGraph(n,edges,h)}
+  if(extra){const r=johnson(n,edges.concat([extra]));
+    o+=`\nAdding edge ${extra[0]}->${extra[1]} (w=${extra[2]}): ${r[0]===null?'<span class="x">NEGATIVE CYCLE DETECTED</span>':"ok (no negative cycle)"}\n`;
+    an.push(`Extra edge ${extra[0]}→${extra[1]} (w=${extra[2]}) ${r[0]===null?"creates a negative cycle: Bellman-Ford still relaxes in pass |V|, so Johnson stops.":"does not create a negative cycle."}`)}
+  const res=[];
+  if(sizes.length){
+    const rand=rng(seed),ri=(a,b)=>a+Math.floor(rand()*(b-a+1));
+    o+=`\nSparse random graphs (m = ${fac}n), Johnson vs Floyd-Warshall\n${"n".padStart(5)} | ${"m".padStart(6)} | ${"Johnson ms".padStart(10)} | ${"Floyd ms".padStart(9)} | match\n`;
+    for(const V of sizes){
+      st.textContent=`V = ${V} …`;await tick();
+      if(fac*V>V*(V-1))throw new Error(`V = ${V} is too small for ${fac}·V distinct edges.`);
+      const pot=Array.from({length:V},()=>ri(0,30)),es=new Set;
+      while(es.size<fac*V){const u=ri(0,V-1),v=ri(0,V-1);if(u!==v)es.add(u*V+v)}
+      const E=[...es].map(k=>{const u=Math.floor(k/V),v=k%V;return[u,v,ri(0,mw)+pot[u]-pot[v]]});
+      let t0=performance.now();const [DJ]=johnson(V,E);const tj=performance.now()-t0;
+      t0=performance.now();const DF=floyd(V,E);const tf=performance.now()-t0;
+      const ok=DJ&&eqMat(DJ,DF,V),negs=E.filter(e=>e[2]<0).length;
+      res.push({V,E:E.length,tj,tf,ok,negs});
+      o+=`${String(V).padStart(5)} | ${String(E.length).padStart(6)} | ${tj.toFixed(1).padStart(10)} | ${tf.toFixed(1).padStart(9)} | ${ok}  (${negs} negative edges)\n`}
+    if(res.every(r=>r.ok))an.push(`Johnson matched Floyd-Warshall on all ${res.length} random graphs (each has negative edges but no negative cycle).`);
+    const f=res[0],l=res[res.length-1];
+    an.push(`Johnson’s speed-up over Floyd-Warshall goes from ×${(f.tf/f.tj).toFixed(2)} at V = ${f.V} to ×${(l.tf/l.tj).toFixed(2)} at V = ${l.V}${l.tf<l.tj?". A value below 1 means Floyd-Warshall was still faster: in JavaScript its tight typed-array loop has a very small constant factor, so the crossover where O(V·E·log V) beats Θ(V³) appears at larger V (try 1000–1500). The manual’s Python run shows the crossover already at V = 100.":"."}`);
+    if(res.length>1)an.push(`Scaling: V ×${(l.V/f.V).toFixed(0)} made Floyd-Warshall ×${(l.tf/f.tf).toFixed(0)} slower (≈ V³ = ×${Math.pow(l.V/f.V,3).toFixed(0)}) but Johnson only ×${(l.tj/f.tj).toFixed(0)} (≈ V·E·log V on sparse graphs).`);
+    const sw=$("c1card"),sx=$("c2card");sw.hidden=sx.hidden=false;
+    bars("c1",res.map(r=>({l:"V="+r.V,v:[r.tj,r.tf]})),["var(--c1)","var(--c2)"],true);
+    bars("c2",res.map(r=>({l:"V="+r.V,v:[r.tf/r.tj]})),["var(--c1)"]);
+  }else{$("c1card").hidden=$("c2card").hidden=true}
+  $("term").innerHTML=o;$("conCard").hidden=false;
+  $("an").innerHTML=an.map(x=>`<li>${x.replace(/&/g,"&amp;").replace(/</g,"&lt;")}</li>`).join("");$("anCard").hidden=false;
+  st.textContent="Done."}
+  catch(e){st.textContent=e.message;st.className="msg err"}
+  $("run").disabled=false};
+</script>
+</body>
+</html>
